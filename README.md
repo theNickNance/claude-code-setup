@@ -21,6 +21,7 @@ project context across sessions — using plain markdown files committed to your
 
 ```
 CLAUDE.md                          ← Global config (loaded every session)
+install.sh                         ← Install script (copies files to ~/.claude/)
 skills/
   plan/SKILL.md                    ← /plan — create change plans
   tasks/SKILL.md                   ← /tasks — track tasks with priorities
@@ -37,16 +38,20 @@ templates/
 ```bash
 # Clone the repo
 git clone <repo-url> ~/.claude-code-system
+cd ~/.claude-code-system
 
-# Copy CLAUDE.md to your global Claude config
+# Run the install script
+./install.sh
+```
+
+Or manually:
+
+```bash
 cp ~/.claude-code-system/CLAUDE.md ~/.claude/CLAUDE.md
-
-# Copy skills to your global skills directory
 cp -r ~/.claude-code-system/skills/* ~/.claude/skills/
 ```
 
-That's it. The global CLAUDE.md loads every session. Skills load on-demand when
-you invoke them.
+The global CLAUDE.md loads every session. Skills load on-demand when you invoke them.
 
 ## How It Works
 
@@ -137,8 +142,9 @@ After approval, automatically creates linked tasks in TASKS.md.
 
 ### `/tasks` — Task Tracking
 
-Simple markdown-based task tracking with priorities (P0–P3), status, owner, and
-plan links. Tasks are the single source of truth for "is this done?"
+List-based task tracking with priorities (P0–P3), status, assignees (`@github`
+usernames), and plan links. Uses block format instead of tables to prevent merge
+conflicts. Tasks are the single source of truth for "is this done?"
 
 Commands: `/tasks` (view), `/tasks add`, `/tasks done T-003`, `/tasks clean`
 

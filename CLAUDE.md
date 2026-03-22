@@ -56,6 +56,33 @@ Use these unless a project-level CLAUDE.md specifies otherwise:
 - Atomic commits. One logical change each.
 - Branches: `feat/short-description`, `fix/short-description`.
 
+### Pre-Commit Checklist (Do Not Skip)
+
+**Before every `git commit`, complete ALL of these steps in order:**
+
+1. Run `pnpm test` — if any test fails, fix before continuing.
+2. Update [[ARCHITECTURE]] if this commit changes the data model, adds a
+   service/integration, or changes an API pattern.
+3. Update [[CHANGELOG]] if this commit completes a plan.
+4. Update [[TASKS]] if this commit completes or changes the status of a task.
+5. Update the plan doc if this commit completes or advances a plan.
+
+**Then STOP. Do not commit yet.** Present the following to the user and wait
+for explicit approval:
+
+- Summary of what changed (files modified, features added/changed)
+- Which docs were updated and what changed in them
+- A manual test plan: specific things the user should verify in the browser
+  or terminal before committing (e.g., "navigate to /workflows, create a new
+  workflow, verify it appears in the list")
+- Any risks or things to watch for
+
+**Wait for the user to confirm before committing.** If the user reports issues,
+fix them and re-run this checklist. Only commit after explicit go-ahead.
+
+**Do not batch doc updates as a separate commit.** Docs ship in the same
+commit as the code they describe.
+
 ---
 
 ## Documentation

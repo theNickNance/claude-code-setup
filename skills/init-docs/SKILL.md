@@ -71,13 +71,11 @@ Required env vars, feature flags, config files. What's needed locally vs. produc
 
 ## Active
 
-| ID | Task | Priority | Status | Owner | Created | Plan |
-|----|------|----------|--------|-------|---------|------|
+<!-- Add tasks as ### blocks. See /tasks skill for format. -->
+
+---
 
 ## Archive
-
-| ID | Task | Priority | Completed | Plan |
-|----|------|----------|-----------|------|
 ```
 
 5. Populate [[CHANGELOG]] (`docs/CHANGELOG.md`):

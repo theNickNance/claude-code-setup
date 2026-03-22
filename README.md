@@ -40,6 +40,9 @@ templates/
 git clone <repo-url> ~/.claude-code-system
 cd ~/.claude-code-system
 
+# Make the install script executable (first time only)
+chmod +x install.sh
+
 # Run the install script
 ./install.sh
 ```

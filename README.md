@@ -52,9 +52,11 @@ Or manually:
 ```bash
 cp ~/.claude-code-system/CLAUDE.md ~/.claude/CLAUDE.md
 cp -r ~/.claude-code-system/skills/* ~/.claude/skills/
+mkdir -p ~/.claude/templates
+cp ~/.claude-code-system/templates/design_system.md ~/.claude/templates/design_system.md
 ```
 
-The global CLAUDE.md loads every session. Skills load on-demand when you invoke them.
+The global CLAUDE.md loads every session. Skills load on-demand when you invoke them. Templates are installed to `~/.claude/templates/` so `/init-docs` does not depend on the source repo checkout still being present.
 
 ## How It Works
 

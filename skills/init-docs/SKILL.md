@@ -118,7 +118,10 @@ Required env vars, feature flags, config files. What's needed locally vs. produc
    [[ARCHITECTURE]] as possible (tech stack, data model, patterns).
    If it's a brand new project, leave the skeleton for the user to fill in.
 
-8. Remind the user to also create a project-level `CLAUDE.md` if one doesn't
+8. If the project has a frontend and `design_system.md` does not exist, create it
+   from `~/.claude/templates/design_system.md`.
+
+9. Remind the user to also create a project-level `CLAUDE.md` if one doesn't
    exist, and [[design_system]] if the project has a frontend.
 
 ## Rules
@@ -127,3 +130,4 @@ Required env vars, feature flags, config files. What's needed locally vs. produc
 - If [[ARCHITECTURE]] already exists, offer to update/fill in missing sections instead.
 - The setup runbook should reflect the ACTUAL project setup, not a generic template.
   Read package.json, .env.example, docker-compose.yml etc. to fill it in accurately.
+- The installed template path is `~/.claude/templates/design_system.md`. Do not assume the source repo checkout still exists.

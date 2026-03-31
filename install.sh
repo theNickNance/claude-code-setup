@@ -26,7 +26,7 @@ safe_copy() {
 }
 
 # Create ~/.claude/ if it doesn't exist
-mkdir -p "$CLAUDE_DIR/skills"
+mkdir -p "$CLAUDE_DIR/skills" "$CLAUDE_DIR/templates"
 
 # Copy global CLAUDE.md
 safe_copy "$SCRIPT_DIR/CLAUDE.md" "$CLAUDE_DIR/CLAUDE.md" "~/.claude/CLAUDE.md"
@@ -41,6 +41,9 @@ for skill_dir in "$SCRIPT_DIR"/skills/*/; do
   skill_count=$((skill_count + 1))
 done
 shopt -u nullglob
+
+# Copy templates
+safe_copy "$SCRIPT_DIR/templates/design_system.md" "$CLAUDE_DIR/templates/design_system.md" "~/.claude/templates/design_system.md"
 
 if [[ "$skill_count" -eq 0 ]]; then
   echo ""

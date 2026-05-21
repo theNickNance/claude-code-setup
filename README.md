@@ -1,127 +1,173 @@
 # Claude Code System
 
-A configuration system for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that enforces consistent documentation, test-driven development, design system compliance, and long-term maintainability — especially for AI-written codebases.
+A configuration system for [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
+designed to give Claude persistent context across sessions without locking
+you into one project shape.
+
+The system is split into two layers:
+
+- A **minimal global** config at `~/.claude/CLAUDE.md` covering only the
+  universal rituals: session start, big-changes-need-a-plan, wiki links,
+  and git conventions. It assumes nothing about your project — not even
+  that it's a software project.
+- A set of **profiles** under `profiles/` that you drop into a project to
+  add everything project-specific: the docs structure to maintain, the test
+  command, the code style, the maintainability rules, reuse locations,
+  pattern registry. Each profile is a complete project `CLAUDE.md`.
+
+This split lets you jump between projects of different shapes — web apps,
+client workflows, research, ops — without dragging assumptions from one
+into another. When you do start a new web app, your familiar conventions
+are still one install command away.
 
 ## The Problem
 
 Claude Code is powerful but stateless. Every new session starts from zero context.
 Without structure, you end up with:
 
-- Inconsistent code patterns across sessions (three different hooks for the same thing)
+- Inconsistent patterns across sessions (three different hooks for the same thing)
 - No record of *why* things were built a certain way
-- AI-written frontend that drifts from your design (wrong colors, spacing, fonts)
-- Tests that hit coverage numbers but protect nothing
-- A codebase that works but no human fully understands
+- AI-written work that drifts from your design and conventions
+- Tests or quality checks that pass on paper but protect nothing
+- A project that works but no human fully understands
 
-This system solves these problems with a global `CLAUDE.md` config, a set of
-slash-command skills, and a documentation structure that gives Claude persistent
-project context across sessions — using plain markdown files committed to your repo.
+This system solves these problems with markdown files committed alongside your work:
+a minimal global `CLAUDE.md`, a project-specific `CLAUDE.md` installed from a
+profile, a set of slash-command skills, and whatever doc structure that profile
+prescribes.
 
 ## What's Included
 
 ```
-CLAUDE.md                          ← Global config (loaded every session)
-install.sh                         ← Install script (copies files to ~/.claude/)
+CLAUDE.md                          ← Global config (loaded every session, stack-agnostic)
+install.sh                         ← Install script (global + per-project profiles)
 skills/
   plan/SKILL.md                    ← /plan — create change plans
   tasks/SKILL.md                   ← /tasks — track tasks with priorities
   adr/SKILL.md                     ← /adr — architecture decision records
   init-docs/SKILL.md               ← /init-docs — scaffold project docs
   tdd/SKILL.md                     ← /tdd — test-driven dev workflow
-  design-ingest/SKILL.md           ← /design-ingest — extract design tokens
-templates/
-  design_system.md                 ← Design system template for new projects
+  design-ingest/SKILL.md           ← /design-ingest — extract design tokens (frontend)
+profiles/
+  nextjs-webapp/                   ← Next.js + TS + Tailwind + shadcn/ui + Prisma
+    CLAUDE.md                      ← Stack, code style, component rules, test commands
+    design_system.md               ← Design system template for new projects
+  generic/                         ← Minimal placeholder, no stack assumptions
+    CLAUDE.md
 ```
 
 ## Install
 
+### Global config (one-time)
+
 ```bash
 # Clone the repo
-git clone <repo-url> ~/.claude-code-system
-cd ~/.claude-code-system
-
-# Make the install script executable (first time only)
+git clone https://github.com/theNickNance/claude-code-setup ~/.claude-code-setup
+cd ~/.claude-code-setup
 chmod +x install.sh
 
-# Run the install script
+# Install global CLAUDE.md + skills to ~/.claude/
 ./install.sh
 ```
 
-Or manually:
+### Per-project profile
+
+For each project, install a profile to drop a project-level `CLAUDE.md` (and
+any companion files like `design_system.md`) into the project root:
 
 ```bash
-cp ~/.claude-code-system/CLAUDE.md ~/.claude/CLAUDE.md
-cp -r ~/.claude-code-system/skills/* ~/.claude/skills/
-mkdir -p ~/.claude/templates
-cp ~/.claude-code-system/templates/design_system.md ~/.claude/templates/design_system.md
+# From the claude-code-setup repo:
+./install.sh list                              # see available profiles
+./install.sh profile nextjs-webapp ~/code/my-next-app
+./install.sh profile generic ~/code/some-repo
 ```
 
-The global CLAUDE.md loads every session. Skills load on-demand when you invoke them. Templates are installed to `~/.claude/templates/` so `/init-docs` does not depend on the source repo checkout still being present.
+The profile writes to `<target>/CLAUDE.md`. If a file already exists at the
+destination, you'll be prompted before it gets overwritten. Commit the
+installed file with your project — it's part of the repo, not your local
+config.
 
 ## How It Works
 
-### Architecture: What Gets Loaded When
+### Two-layer config
 
-The system is designed around a token budget. Files that load every session are
-kept small. Reference material loads only when a skill is invoked.
+| Layer | File | What it covers |
+|-------|------|----------------|
+| Global | `~/.claude/CLAUDE.md` | Session start, big-changes-need-a-plan, wiki link convention, git conventions, skills reference. ~60 lines. |
+| Project | `<repo>/CLAUDE.md` | Everything else: what artifacts the project maintains, what counts as "done," stack, code style, test command, reuse locations, key patterns. |
 
-| File | When loaded | Size |
-|------|------------|------|
-| `~/.claude/CLAUDE.md` | Every session | ~1,400 words |
-| Project `CLAUDE.md` | Every session in that project | Varies |
-| `docs/ARCHITECTURE.md` | Every session (per startup rules) | Varies |
-| `docs/TASKS.md` | Every session (per startup rules) | Small |
-| `design_system.md` | Sessions involving frontend work | ~1,500 words |
-| Skills | Only when invoked via slash command | 250–725 words each |
+The global is intentionally minimal and project-agnostic. It does not assume
+the project is software. It tells Claude to read the project CLAUDE.md first
+and ASK before adopting opinions about stack, file layout, testing, or
+workflow when the project is unfamiliar.
+
+### What gets loaded when
+
+| File | When loaded |
+|------|-------------|
+| `~/.claude/CLAUDE.md` | Every session |
+| Project `CLAUDE.md` | Every session in that project |
+| Docs the project CLAUDE.md calls out | Every session (per the project's session-start rules) |
+| Reference docs (e.g., `design_system.md`) | When the project CLAUDE.md calls them out |
+| Skills | Only when invoked via slash command |
 
 ### Session Start
 
-Every Claude Code session begins by reading context (defined in the global CLAUDE.md):
+The global tells Claude to do two things at session start:
 
-1. Read the project-level `CLAUDE.md`
-2. Read `docs/ARCHITECTURE.md` — the system's current state
-3. Check `docs/plans/` for any plans with status "In Progress"
-4. Check `docs/TASKS.md` for any P0 or Blocked tasks
-5. Read `design_system.md` if frontend work is involved
+1. Read the project-level `CLAUDE.md` if one exists.
+2. Read whatever it tells you to read next.
 
-This is how the system replaces memory and maintains continuity across sessions.
+Each profile's `CLAUDE.md` defines what step 2 looks like for that project shape.
+The `nextjs-webapp` profile, for example, points at `docs/ARCHITECTURE.md`,
+in-progress plans, P0 tasks, and the design system. A different profile might
+point at a brief template, a brand reference, or a research question doc.
+
 No database, no API, no agent framework — just markdown files in git.
 
 ### Per-Project Structure
 
-When you start a new project, `/init-docs` scaffolds this structure:
-
-```
-your-project/
-  CLAUDE.md                        ← Project-specific context (domain, data model, conventions)
-  design_system.md                 ← Design tokens (colors, typography, spacing, patterns)
-  docs/
-    ARCHITECTURE.md                ← System state — always current, always read first
-    TASKS.md                       ← Task tracking (ID, priority, status, owner, linked plan)
-    CHANGELOG.md                   ← Curated log of significant changes
-    plans/                         ← Change plans (permanent record, never deleted)
-      PLAN-001-auth-setup.md
-      PLAN-002-data-model.md
-    decisions/                     ← Architecture Decision Records (permanent, never deleted)
-      ADR-001-database-choice.md
-    domain/                        ← Business domain knowledge docs (optional)
-    design/                        ← Reference screenshots for design system
-    runbooks/                      ← Setup, deployment, operational procedures
-```
+The structure of `your-project/` is up to the profile. The `nextjs-webapp`
+profile prescribes a `docs/` directory with ARCHITECTURE/TASKS/CHANGELOG/plans/
+decisions/runbooks (scaffolded by `/init-docs`); other profiles can prescribe
+something different, or nothing at all.
 
 ### Cross-Referencing with Wiki-Links
 
-All docs use `[[wiki-link]]` syntax for cross-references:
+The global recommends `[[wiki-link]]` syntax for cross-references between
+markdown files. It makes docs navigable in [Obsidian](https://obsidian.md/)
+(clickable links, backlink panels, graph view) while staying plain text
+everywhere else. Profiles use it freely (e.g., the web profile links plans,
+ADRs, ARCHITECTURE, and TASKS to each other).
 
-- In TASKS.md: `[[PLAN-003-auth-setup]]` in the Plan column
-- In plans: `[[ADR-002-database-choice]]`, `[[ARCHITECTURE]]`
-- In ADRs: `Superseded by [[ADR-005-migration]]`
+## Profiles
 
-This makes docs navigable in [Obsidian](https://obsidian.md/) (clickable links,
-backlink panels, graph view) while staying readable in any markdown viewer.
+A profile is a small bundle of project-level files that pairs with the global
+config. Each profile sets the stack-specific knobs the global intentionally
+leaves blank: file naming, test commands, reuse locations, key patterns.
 
-**Recommended:** Open your project root as an Obsidian vault for searching and
-navigating docs. `Cmd+O` for quick file open, `Cmd+Shift+F` for full-text search.
+### Shipped profiles
+
+**`nextjs-webapp`** — Next.js App Router + TypeScript strict + Tailwind +
+shadcn/ui + Prisma. Includes a `design_system.md` template. Use this for new
+web apps you're starting from scratch.
+
+**`generic`** — A placeholder `CLAUDE.md` with TODO sections for stack, test
+commands, code style, reuse locations, and key patterns. Use this when picking
+up an unfamiliar repo or starting a project whose shape doesn't match the
+other profiles. Ask Claude to inspect the repo and propose drafts for the
+TODO sections.
+
+### Adding your own profile
+
+Profiles are just directories under `profiles/`. To create one:
+
+1. `mkdir profiles/<name>` in this repo.
+2. Add a `CLAUDE.md` with the project-level conventions for that shape of project.
+3. Add any companion files (e.g., a template `design_system.md`, a starter
+   `.editorconfig`) at the same level — `install.sh profile` copies every
+   file in the profile directory to the target.
+4. Run `./install.sh profile <name> <target>` to use it.
 
 ## Skills
 
@@ -135,15 +181,19 @@ existing code, it analyzes the codebase to pre-populate ARCHITECTURE.md.
 
 Creates a numbered plan document before implementation begins. Plans include
 problem statement, approach, scope, risks, task breakdown, and test strategy.
-After approval, automatically creates linked tasks in TASKS.md.
+After approval, automatically creates linked tasks.
 
-**Plans are required when a change:**
-- Touches more than 3 files
-- Adds/changes data model entities
-- Introduces a new external dependency
-- Changes an API contract
+**Plans are required when a change** (per the global config):
+- Affects more than ~3 distinct artifacts
+- Introduces a new external dependency, integration, or service
+- Alters the underlying model the project is built around (data schema,
+  content template, workflow steps — whatever applies)
 - Estimated at more than ~30 minutes of work
 - Could break existing functionality
+
+Profiles may add their own project-shaped versions of these criteria (the
+`nextjs-webapp` profile adds "changes an API contract" and "changes the data
+model entities").
 
 ### `/tasks` — Task Tracking
 
@@ -161,35 +211,35 @@ is reversed, a new ADR supersedes the old one.
 
 ### `/tdd` — Test-Driven Development
 
-Enforces a strict red-green-refactor cycle. Includes Vitest configuration,
-fixture patterns with realistic domain data, component testing helpers, and
-API route test examples.
+Enforces a strict red-green-refactor cycle. The workflow and patterns are
+language-agnostic; the exact test command comes from the project CLAUDE.md.
 
 The workflow: write tests → confirm RED → implement → confirm GREEN → refactor →
 run full suite.
 
 ### `/design-ingest` — Extract Design Tokens
 
-Analyzes reference screenshots or URLs and extracts design tokens (colors,
-typography, spacing, radii, shadows, component patterns) into `design_system.md`.
-Also updates `tailwind.config.ts` and `globals.css`.
+Frontend-specific. Analyzes reference screenshots or URLs and extracts design
+tokens (colors, typography, spacing, radii, shadows, component patterns) into
+the project's `design_system.md`.
 
 ## The Development Workflow
 
 ### New Project Setup
 
 ```
-# 1. Create your project
+# 1. Create your project (example: Next.js)
 npx create-next-app@latest my-app --typescript --tailwind --app --src-dir
 cd my-app
 
-# 2. Scaffold docs
+# 2. Install the appropriate profile
+~/.claude-code-setup/install.sh profile nextjs-webapp .
+
+# 3. Scaffold docs
 /init-docs
 
-# 3. Save reference screenshots to docs/design/, then:
+# 4. (Frontend only) save reference screenshots to docs/design/, then:
 /design-ingest
-
-# 4. Write the project-level CLAUDE.md with domain context
 
 # 5. Design the architecture
 "Let's design the architecture for this app. [describe it].
@@ -201,7 +251,6 @@ Write docs/ARCHITECTURE.md with the full system design."
 # 7. Break v1 into plans
 /plan    # "Auth setup"
 /plan    # "Core data model"
-/plan    # "Dashboard page"
 
 # 8. Check your backlog
 /tasks
@@ -212,8 +261,8 @@ Write docs/ARCHITECTURE.md with the full system design."
 ```
 # Claude reads ARCHITECTURE.md, TASKS.md, checks plans (automatic)
 
-/tasks                           # What's P1?
-/tdd                             # Write tests first, then implement
+/tasks       # What's P1?
+/tdd         # Write tests first, then implement
 
 # Claude commits with traceability:
 # feat(T-001): add company data model (PLAN-002)
@@ -234,7 +283,7 @@ Write docs/ARCHITECTURE.md with the full system design."
 | Choosing between technologies | `/adr` |
 | Building a feature | `/tdd` → implement |
 | Checking what to work on | `/tasks` |
-| Setting up a new project | `/init-docs` + `/design-ingest` |
+| Setting up a new project | profile install + `/init-docs` |
 | Establishing design direction | `/design-ingest` with reference screenshots |
 
 ## Key Design Decisions
@@ -246,13 +295,20 @@ means: it's version-controlled, it survives across sessions, it's searchable,
 it's human-readable, and it costs nothing. No API calls, no memory databases,
 no agent frameworks to maintain.
 
-### Why Skills, Not a Bigger CLAUDE.md
+### Why a Minimal Global
 
-The original version of this system was a 756-line monolithic CLAUDE.md. That's
-~4,000 tokens loaded every session, most of which was templates and code examples
-only relevant occasionally. The current CLAUDE.md is ~1,400 words (rules and
-pointers). Skills load on-demand when invoked. Same total content, dramatically
-lower per-session token cost.
+An earlier version of this system kept everything (rituals, Next.js
+conventions, TDD, maintainability, docs structure) in a single global
+CLAUDE.md. That worked great for web apps and poorly for everything else —
+picking up a Python data project, a content workflow for a client, or a
+research repo meant Claude still assumed `pnpm test`, RSCs, a `docs/`
+directory, and "data model entities" that didn't apply.
+
+The current split puts only the genuinely universal stuff in the global:
+session start, big-changes-need-a-plan, wiki links, git conventions. The
+project's shape — what artifacts it maintains, what counts as "done,"
+whether it has tests at all — is the profile's job to declare. The global
+never assumes a software project; the profile says so when it is one.
 
 ### Why Wiki-Links
 
@@ -281,12 +337,13 @@ standard coding practices:
 
 Everything is just markdown files. Fork and customize:
 
-- **CLAUDE.md**: Change the stack defaults, code style, component rules to match
-  your preferences. Remove sections that don't apply.
-- **Skills**: Modify templates, add new fields, change the workflow. Add your own
+- **Global `CLAUDE.md`** — adjust the rituals, git conventions, or maintainability
+  rules. Keep it stack-agnostic so it travels across projects.
+- **Profiles** — clone `profiles/nextjs-webapp/` or `profiles/generic/` into a
+  new directory under `profiles/`, then edit the `CLAUDE.md` for the new stack.
+  Run `./install.sh profile <new-name>` to use it.
+- **Skills** — modify templates, add new fields, change the workflow. Add your own
   skills for patterns specific to your work.
-- **design_system.md template**: Adjust the token structure to match your design
-  process.
 
 ## Requirements
 

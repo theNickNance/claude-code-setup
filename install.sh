@@ -1,6 +1,17 @@
 #!/bin/bash
-# install.sh — Copy CLAUDE.md and skills to ~/.claude/
-# Run from the repo root: ./install.sh
+# install.sh — Install Claude Code setup
+#
+# Usage:
+#   ./install.sh                              Install global config to ~/.claude/
+#   ./install.sh global                       Same as above (explicit)
+#   ./install.sh profile <name> [target-dir]  Install a project profile
+#                                             target-dir defaults to current directory
+#   ./install.sh list                         List available profiles
+#
+# Examples:
+#   ./install.sh                              # global CLAUDE.md + skills
+#   ./install.sh profile nextjs-webapp        # writes ./CLAUDE.md (+ design_system.md)
+#   ./install.sh profile generic ../my-app    # writes ../my-app/CLAUDE.md
 
 set -e
 
@@ -25,33 +36,121 @@ safe_copy() {
   echo "✓ Copied $label"
 }
 
-# Create ~/.claude/ if it doesn't exist
-mkdir -p "$CLAUDE_DIR/skills" "$CLAUDE_DIR/templates"
+list_profiles() {
+  shopt -s nullglob
+  local found=0
+  for d in "$SCRIPT_DIR"/profiles/*/; do
+    echo "  - $(basename "$d")"
+    found=1
+  done
+  shopt -u nullglob
+  if [[ "$found" -eq 0 ]]; then
+    echo "  (none found in $SCRIPT_DIR/profiles/)"
+  fi
+}
 
-# Copy global CLAUDE.md
-safe_copy "$SCRIPT_DIR/CLAUDE.md" "$CLAUDE_DIR/CLAUDE.md" "~/.claude/CLAUDE.md"
+install_global() {
+  mkdir -p "$CLAUDE_DIR/skills"
 
-# Copy each skill
-skill_count=0
-shopt -s nullglob
-for skill_dir in "$SCRIPT_DIR"/skills/*/; do
-  skill_name=$(basename "$skill_dir")
-  mkdir -p "$CLAUDE_DIR/skills/$skill_name"
-  safe_copy "$skill_dir/SKILL.md" "$CLAUDE_DIR/skills/$skill_name/SKILL.md" "skill: $skill_name"
-  skill_count=$((skill_count + 1))
-done
-shopt -u nullglob
+  safe_copy "$SCRIPT_DIR/CLAUDE.md" "$CLAUDE_DIR/CLAUDE.md" "~/.claude/CLAUDE.md"
 
-# Copy templates
-safe_copy "$SCRIPT_DIR/templates/design_system.md" "$CLAUDE_DIR/templates/design_system.md" "~/.claude/templates/design_system.md"
+  local skill_count=0
+  shopt -s nullglob
+  for skill_dir in "$SCRIPT_DIR"/skills/*/; do
+    local skill_name
+    skill_name=$(basename "$skill_dir")
+    mkdir -p "$CLAUDE_DIR/skills/$skill_name"
+    safe_copy "$skill_dir/SKILL.md" "$CLAUDE_DIR/skills/$skill_name/SKILL.md" "skill: $skill_name"
+    skill_count=$((skill_count + 1))
+  done
+  shopt -u nullglob
 
-if [[ "$skill_count" -eq 0 ]]; then
-  echo ""
-  echo "No skills found in $SCRIPT_DIR/skills/."
-else
-  echo ""
-  echo "Done. $skill_count skill(s) processed."
-fi
+  echo
+  if [[ "$skill_count" -eq 0 ]]; then
+    echo "No skills found in $SCRIPT_DIR/skills/."
+  else
+    echo "Done. $skill_count skill(s) processed."
+  fi
+  echo
+  echo "To verify: ls ~/.claude/skills/"
+}
 
-echo ""
-echo "To verify: ls ~/.claude/skills/"
+install_profile() {
+  local profile_name="$1"
+  local target_dir="${2:-.}"
+
+  if [[ -z "$profile_name" ]]; then
+    echo "Error: profile name is required."
+    echo "Usage: $0 profile <name> [target-dir]"
+    echo
+    echo "Available profiles:"
+    list_profiles
+    exit 1
+  fi
+
+  local profile_dir="$SCRIPT_DIR/profiles/$profile_name"
+  if [[ ! -d "$profile_dir" ]]; then
+    echo "Error: profile '$profile_name' not found at $profile_dir"
+    echo
+    echo "Available profiles:"
+    list_profiles
+    exit 1
+  fi
+
+  if [[ ! -d "$target_dir" ]]; then
+    echo "Error: target directory '$target_dir' does not exist."
+    exit 1
+  fi
+
+  target_dir="$(cd "$target_dir" && pwd)"
+
+  echo "Installing profile '$profile_name' to $target_dir"
+  echo
+
+  shopt -s nullglob
+  local copied=0
+  for f in "$profile_dir"/*; do
+    if [[ -f "$f" ]]; then
+      local fname
+      fname=$(basename "$f")
+      safe_copy "$f" "$target_dir/$fname" "$target_dir/$fname"
+      copied=$((copied + 1))
+    fi
+  done
+  shopt -u nullglob
+
+  if [[ "$copied" -eq 0 ]]; then
+    echo "Warning: profile '$profile_name' is empty."
+  fi
+
+  echo
+  echo "Done. Profile '$profile_name' installed to $target_dir."
+}
+
+case "${1:-global}" in
+  global)
+    install_global
+    ;;
+  profile)
+    install_profile "$2" "$3"
+    ;;
+  list)
+    echo "Available profiles:"
+    list_profiles
+    ;;
+  -h|--help|help)
+    sed -n '2,15p' "$0"
+    ;;
+  *)
+    echo "Unknown command: $1"
+    echo
+    echo "Usage:"
+    echo "  $0 [global]                       Install global config to ~/.claude/"
+    echo "  $0 profile <name> [target-dir]    Install a project profile"
+    echo "  $0 list                           List available profiles"
+    echo
+    echo "Available profiles:"
+    list_profiles
+    exit 1
+    ;;
+esac

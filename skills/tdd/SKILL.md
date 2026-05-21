@@ -24,180 +24,88 @@ then implement to make them pass.
 
 6. **Refactor** — Clean up while tests stay green.
 
-7. **Run full suite** — `pnpm test` to confirm no regressions.
+7. **Run full suite** — Use the project's full test command (defined in the
+   project CLAUDE.md) to confirm no regressions.
 
 If invoked without a description, ask what to build.
 
-## Test Stack
+## Test Stack and Commands
 
-- **Vitest** — Unit, component, API route tests
-- **React Testing Library** — Component rendering and interaction
-- **Playwright** — E2E (critical paths only, not invoked by /tdd)
+The test framework, runner, and exact commands live in the project's
+`CLAUDE.md`. Read that file before running anything — different projects use
+different runners (Vitest, Jest, pytest, go test, cargo test, etc.) and the
+"full suite" command may differ from the "targeted file" command.
+
+If the project CLAUDE.md does not define a test command, ask the user. Do not
+guess based on what files are in the repo.
 
 ## Test File Placement
 
-Tests live next to the code: `scoring.ts` → `scoring.test.ts`
+Tests live next to the code they cover, using the project's naming convention.
+The project CLAUDE.md should specify the convention. Common conventions by
+language:
 
-```
-src/lib/scoring.ts          → src/lib/scoring.test.ts
-src/components/card.tsx      → src/components/card.test.ts
-src/app/api/workflows/route.ts → src/app/api/workflows/route.test.ts
-```
+- TypeScript/JavaScript: `foo.ts` → `foo.test.ts`
+- Python: `foo.py` → `test_foo.py` or `foo_test.py`
+- Go: `foo.go` → `foo_test.go`
+- Rust: in-file `#[cfg(test)] mod tests` or `tests/foo.rs`
 
-Shared fixtures and helpers go in `tests/`:
-```
-tests/
-  fixtures/        # Factory functions for mock data
-  helpers/         # render-with-providers, mock utilities
-  setup.ts         # Global test setup
-```
-
-## Configuration
-
-If vitest is not yet configured, set it up:
-
-**vitest.config.ts:**
-```typescript
-import { defineConfig } from 'vitest/config'
-import react from '@vitejs/plugin-react'
-import path from 'path'
-
-export default defineConfig({
-  plugins: [react()],
-  test: {
-    environment: 'jsdom',
-    globals: true,
-    setupFiles: ['./tests/setup.ts'],
-    include: ['**/*.test.{ts,tsx}'],
-    exclude: ['**/node_modules/**', '**/e2e/**'],
-    coverage: {
-      provider: 'v8',
-      reporter: ['text', 'text-summary'],
-      include: ['src/**/*.{ts,tsx}'],
-      exclude: ['src/**/*.test.{ts,tsx}', 'src/**/*.d.ts', 'src/**/types.ts'],
-    },
-  },
-  resolve: { alias: { '@': path.resolve(__dirname, './src') } },
-})
-```
-
-**tests/setup.ts:**
-```typescript
-import '@testing-library/jest-dom/vitest'
-import { cleanup } from '@testing-library/react'
-import { afterEach } from 'vitest'
-afterEach(() => { cleanup() })
-```
+Shared fixtures and helpers typically go in a top-level `tests/`, `__tests__/`,
+or `testing/` directory — match the project convention.
 
 ## Patterns
 
+These patterns are language-agnostic. Adapt the syntax to the project's test
+framework, but keep the structure.
+
 ### Naming — describe behavior, not implementation
 
-```typescript
-// ✅ Good
-it('returns high score for workflows with repetitive manual steps', () => {})
-it('throws when workflow has no activities', () => {})
+```
+# Good
+it('returns high score for workflows with repetitive manual steps')
+it('throws when workflow has no activities')
 
-// ❌ Bad
-it('should call the scoring function', () => {})
-it('works correctly', () => {})
+# Bad
+it('should call the scoring function')
+it('works correctly')
 ```
 
 ### Structure — Arrange, Act, Assert
 
-```typescript
-it('returns high score for repetitive manual workflows', () => {
-  // Arrange
-  const workflow = createMockWorkflow({
-    activities: [
-      { type: 'manual', frequency: 'daily', duration: 30 },
-      { type: 'manual', frequency: 'daily', duration: 45 },
-    ],
-  })
+Every test has three sections, in this order:
 
-  // Act
-  const score = calculateAutomationScore(workflow)
+1. **Arrange** — set up the inputs, fixtures, and any mocked boundaries.
+2. **Act** — call the thing being tested. One call per test.
+3. **Assert** — check the outputs and observable side effects.
 
-  // Assert
-  expect(score).toBeGreaterThan(0.7)
-  expect(score).toBeLessThanOrEqual(1.0)
-})
-```
+If a test needs more than one Act step, it's testing more than one behavior;
+split it.
 
 ### Fixtures — factory functions with realistic domain data
 
-```typescript
-// tests/fixtures/workflows.ts
-export function createMockWorkflow(overrides?: Partial<Workflow>): Workflow {
-  return {
-    id: 'wf-test-001',
-    name: 'Invoice Approval',
-    status: 'active',
-    activities: [],
-    createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01'),
-    ...overrides,
-  }
-}
+Prefer typed factory functions (or fixtures, depending on the language) that
+produce realistic domain data with sensible defaults and accept partial
+overrides for the bits each test cares about.
 
-export function createMockActivity(overrides?: Partial<Activity>): Activity {
-  return {
-    id: 'act-test-001',
-    name: 'Review Invoice',
-    type: 'manual',
-    owner: 'Accounts Payable',
-    duration: 15,
-    frequency: 'daily',
-    ...overrides,
-  }
-}
+```
+createMockWorkflow({ activities: [...] })  // override just what the test needs
 ```
 
-### Component tests — use renderWithProviders
+Names, IDs, and dates in fixtures should look like production data
+("Invoice Approval", "Accounts Payable"), never `foo`/`bar`.
 
-```typescript
-// tests/helpers/render-with-providers.tsx
-import { render, RenderOptions } from '@testing-library/react'
-import { ReactElement } from 'react'
+### Mocking — boundaries only
 
-function AllProviders({ children }: { children: React.ReactNode }) {
-  return <>{children}</> // Add ThemeProvider, QueryClientProvider, etc.
-}
+Mock the things you don't own:
 
-export function renderWithProviders(
-  ui: ReactElement,
-  options?: Omit<RenderOptions, 'wrapper'>
-) {
-  return render(ui, { wrapper: AllProviders, ...options })
-}
-```
+- External APIs (HTTP, gRPC, third-party SDKs)
+- The database driver (or use an in-memory/test instance)
+- The clock and randomness (so tests are deterministic)
+- File system access (when relevant)
 
-### API route tests
-
-```typescript
-import { POST } from './route'
-import { NextRequest } from 'next/server'
-
-function createRequest(body: unknown, headers?: Record<string, string>) {
-  return new NextRequest('http://localhost/api/workflows', {
-    method: 'POST',
-    body: JSON.stringify(body),
-    headers: { 'Content-Type': 'application/json', ...headers },
-  })
-}
-
-describe('POST /api/workflows', () => {
-  it('creates with valid data', async () => {
-    const res = await POST(createRequest({ name: 'Invoice Approval', companyId: 'c-001' }))
-    expect(res.status).toBe(201)
-  })
-
-  it('returns 400 when name missing', async () => {
-    const res = await POST(createRequest({ companyId: 'c-001' }))
-    expect(res.status).toBe(400)
-  })
-})
-```
+Do not mock your own modules. If you find yourself mocking a function in the
+same package as the test, you're testing the mock instead of the behavior —
+refactor or test the real thing.
 
 ## Rules
 
@@ -207,6 +115,6 @@ describe('POST /api/workflows', () => {
 - Mock external boundaries (APIs, databases, third-party services). Never mock
   your own business logic — test it directly.
 - Never use snapshot tests. They break on every change and verify nothing useful.
-- Never use `test.skip` without a linked task in [[TASKS]].
+- Never use `test.skip` (or the language equivalent) without a linked task in [[TASKS]].
 - Never commit with failing tests. Main is always green.
 - Every bug fix includes a test that reproduces the bug BEFORE the fix.

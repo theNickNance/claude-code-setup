@@ -1,3 +1,8 @@
+---
+name: init-docs
+description: Scaffold or update a project's docs structure with architecture, tasks, changelog, plans, decisions, design, and setup runbook files; use when the user invokes /init-docs.
+---
+
 # /init-docs — Scaffold Project Documentation
 
 When invoked, create the standard documentation structure for a new project.
@@ -119,9 +124,12 @@ Required env vars, feature flags, config files. What's needed locally vs. produc
    If it's a brand new project, leave the skeleton for the user to fill in.
 
 8. If the project has a frontend and `design_system.md` does not exist, create it
-   from `~/.claude/templates/design_system.md`.
+   from the installed platform template:
+   - Claude Code: `~/.claude/templates/design_system.md`
+   - Codex: `~/.codex/templates/design_system.md`
+   - OpenCode: `~/.config/opencode/templates/design_system.md`
 
-9. Remind the user to also create a project-level `CLAUDE.md` if one doesn't
+9. Remind the user to also create project-level instructions if they don't
    exist, and [[design_system]] if the project has a frontend.
 
 ## Rules
@@ -130,4 +138,4 @@ Required env vars, feature flags, config files. What's needed locally vs. produc
 - If [[ARCHITECTURE]] already exists, offer to update/fill in missing sections instead.
 - The setup runbook should reflect the ACTUAL project setup, not a generic template.
   Read package.json, .env.example, docker-compose.yml etc. to fill it in accurately.
-- The installed template path is `~/.claude/templates/design_system.md`. Do not assume the source repo checkout still exists.
+- Use the template path for the active platform. Do not assume the source repo checkout still exists.

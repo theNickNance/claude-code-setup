@@ -1,3 +1,8 @@
+---
+name: tasks
+description: View, add, update, complete, or clean project tasks in docs/TASKS.md; use when the user invokes /tasks or asks about tracked project tasks.
+---
+
 # /tasks — View and Manage Project Tasks
 
 When invoked, read, create, or update tasks in [[TASKS]] (`docs/TASKS.md`).

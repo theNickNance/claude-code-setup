@@ -1,3 +1,8 @@
+---
+name: design-ingest
+description: Extract frontend design tokens from reference screenshots or URLs and update design_system.md; use when the user invokes /design-ingest.
+---
+
 # /design-ingest — Extract Design Tokens from Reference UI
 
 When invoked, analyze reference screenshots or URLs and populate the project's
@@ -64,7 +69,7 @@ When invoked, analyze reference screenshots or URLs and populate the project's
 - Always note what specific reference each token was extracted from.
 - If two references conflict (e.g., different card radii), flag it and ask
   which to use.
-- Err on the side of slightly tighter spacing estimates. Claude tends to
+- Err on the side of slightly tighter spacing estimates. Agents tend to
   over-estimate padding.
 - Check font identification carefully. If unsure, suggest the 2-3 most
   likely candidates and ask the user to confirm.

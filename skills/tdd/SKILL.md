@@ -1,3 +1,8 @@
+---
+name: tdd
+description: Follow a red-green-refactor workflow by writing tests before implementation; use when the user invokes /tdd or asks to build with test-driven development.
+---
+
 # /tdd — Test-Driven Development Workflow
 
 When invoked with a description of what to build, write the tests FIRST,
@@ -25,24 +30,25 @@ then implement to make them pass.
 6. **Refactor** — Clean up while tests stay green.
 
 7. **Run full suite** — Use the project's full test command (defined in the
-   project CLAUDE.md) to confirm no regressions.
+   project instructions) to confirm no regressions.
 
 If invoked without a description, ask what to build.
 
 ## Test Stack and Commands
 
 The test framework, runner, and exact commands live in the project's
-`CLAUDE.md`. Read that file before running anything — different projects use
-different runners (Vitest, Jest, pytest, go test, cargo test, etc.) and the
-"full suite" command may differ from the "targeted file" command.
+instructions. Read `AGENTS.md` first, or `CLAUDE.md` if the project only has
+Claude Code instructions — different projects use different runners (Vitest,
+Jest, pytest, go test, cargo test, etc.) and the "full suite" command may differ
+from the "targeted file" command.
 
-If the project CLAUDE.md does not define a test command, ask the user. Do not
+If the project instructions do not define a test command, ask the user. Do not
 guess based on what files are in the repo.
 
 ## Test File Placement
 
 Tests live next to the code they cover, using the project's naming convention.
-The project CLAUDE.md should specify the convention. Common conventions by
+The project instructions should specify the convention. Common conventions by
 language:
 
 - TypeScript/JavaScript: `foo.ts` → `foo.test.ts`

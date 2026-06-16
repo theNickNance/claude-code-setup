@@ -1,17 +1,17 @@
-# CLAUDE.md — Global
+# AGENTS.md — Global
 
-Stack-agnostic rituals. Project shape lives in the project CLAUDE.md.
+Stack-agnostic rituals. Project shape lives in the project AGENTS.md.
 
-## Style for CLAUDE.md Files
+## Style for AGENTS.md Files
 
 Short declarative statements. No editorial filler. If a rule needs a "why," make it a one-line `Why:` suffix, not a paragraph.
 
 ## Session Start
 
-1. Read the project-level CLAUDE.md if one exists.
+1. Read the project-level AGENTS.md if one exists.
 2. Read whatever it tells you to read next.
 
-If no project CLAUDE.md and the project is unfamiliar, ask before adopting opinions about stack, layout, testing, or workflow.
+If no project AGENTS.md and the project is unfamiliar, ask before adopting opinions about stack, layout, testing, or workflow.
 
 ## Working Principles
 

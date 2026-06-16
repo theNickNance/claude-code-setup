@@ -1,3 +1,8 @@
+---
+name: adr
+description: Create architecture decision records in docs/decisions for meaningful technical decisions; use when the user invokes /adr or asks to document a decision.
+---
+
 # /adr — Create an Architecture Decision Record
 
 When invoked, create a new ADR to document a significant technical decision.

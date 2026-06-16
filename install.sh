@@ -1,39 +1,69 @@
 #!/bin/bash
-# install.sh — Install Claude Code setup
-#
-# Usage:
-#   ./install.sh                              Install global config to ~/.claude/
-#   ./install.sh global                       Same as above (explicit)
-#   ./install.sh profile <name> [target-dir]  Install a project profile
-#                                             target-dir defaults to current directory
-#   ./install.sh list                         List available profiles
-#
-# Examples:
-#   ./install.sh                              # global CLAUDE.md + skills
-#   ./install.sh profile nextjs-webapp        # writes ./CLAUDE.md (+ design_system.md)
-#   ./install.sh profile generic ../my-app    # writes ../my-app/CLAUDE.md
+# install.sh — Install unified agent setup
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-CLAUDE_DIR="$HOME/.claude"
+MODE="prompt"
 
-# Prompt before overwriting an existing file. Skips if user declines.
+usage() {
+  cat <<'EOF'
+Usage:
+  ./install.sh [global|claude]                 Install Claude Code global config
+  ./install.sh codex                           Install Codex global config
+  ./install.sh opencode                        Install OpenCode global config
+  ./install.sh all                             Install Claude Code, Codex, and OpenCode globals
+  ./install.sh profile <name> [target] [kind]  Install a project profile
+                                               kind: both|agents|claude (default: both)
+  ./install.sh list                            List available profiles
+  ./install.sh --verify <target>               Verify installed files
+  ./install.sh --sync <target>                 Overwrite managed files without prompting
+  ./install.sh --dry-run <target>              Show what would change
+
+Targets:
+  claude, codex, opencode, all
+
+Examples:
+  ./install.sh
+  ./install.sh all
+  ./install.sh --verify all
+  ./install.sh --dry-run codex
+  ./install.sh profile nextjs-webapp ~/code/my-app both
+EOF
+}
+
 safe_copy() {
   local src="$1"
   local dest="$2"
   local label="$3"
 
-  if [[ -f "$dest" ]]; then
+  if [[ "$MODE" == "verify" ]]; then
+    if [[ ! -f "$dest" ]]; then
+      echo "MISSING  $label"
+    elif cmp -s "$src" "$dest"; then
+      echo "OK       $label"
+    else
+      echo "DRIFT    $label"
+    fi
+    return
+  fi
+
+  if [[ "$MODE" == "dry-run" ]]; then
+    echo "WOULD    $label -> $dest"
+    return
+  fi
+
+  mkdir -p "$(dirname "$dest")"
+  if [[ -f "$dest" && "$MODE" == "prompt" ]]; then
     read -r -p "⚠ $label already exists. Overwrite? [y/N] " answer
     if [[ ! "$answer" =~ ^[Yy]$ ]]; then
-      echo "  Skipped $label"
+      echo "SKIP     $label"
       return
     fi
   fi
 
   cp "$src" "$dest"
-  echo "✓ Copied $label"
+  echo "COPIED   $label"
 }
 
 list_profiles() {
@@ -49,39 +79,124 @@ list_profiles() {
   fi
 }
 
-install_global() {
-  mkdir -p "$CLAUDE_DIR/skills"
+ensure_absent() {
+  local path="$1"
+  local label="$2"
 
-  safe_copy "$SCRIPT_DIR/CLAUDE.md" "$CLAUDE_DIR/CLAUDE.md" "~/.claude/CLAUDE.md"
+  if [[ "$MODE" == "verify" ]]; then
+    if [[ -e "$path" ]]; then
+      echo "DRIFT    $label should not be globally installed"
+    else
+      echo "OK       $label absent"
+    fi
+    return
+  fi
 
-  local skill_count=0
+  if [[ "$MODE" == "dry-run" ]]; then
+    echo "WOULD    remove $label if present"
+    return
+  fi
+
+  if [[ -e "$path" && "$MODE" == "sync" ]]; then
+    rm -rf "$path"
+    echo "REMOVED  $label"
+  fi
+}
+
+ensure_global_workflows_absent() {
+  local platform="$1"
+  local root="$2"
+  local extension="$3"
+
   shopt -s nullglob
   for skill_dir in "$SCRIPT_DIR"/skills/*/; do
-    local skill_name
-    skill_name=$(basename "$skill_dir")
-    mkdir -p "$CLAUDE_DIR/skills/$skill_name"
-    safe_copy "$skill_dir/SKILL.md" "$CLAUDE_DIR/skills/$skill_name/SKILL.md" "skill: $skill_name"
-    skill_count=$((skill_count + 1))
+    local name
+    name="$(basename "$skill_dir")"
+    case "$extension" in
+      skill)
+        ensure_absent "$root/$name" "$platform workflow: $name"
+        ;;
+      command)
+        ensure_absent "$root/$name.md" "$platform command: $name"
+        ;;
+    esac
   done
   shopt -u nullglob
+}
 
-  echo
-  if [[ "$skill_count" -eq 0 ]]; then
-    echo "No skills found in $SCRIPT_DIR/skills/."
-  else
-    echo "Done. $skill_count skill(s) processed."
+install_claude() {
+  local claude_dir="$HOME/.claude"
+
+  safe_copy "$SCRIPT_DIR/CLAUDE.md" "$claude_dir/CLAUDE.md" "~/.claude/CLAUDE.md"
+  safe_copy "$SCRIPT_DIR/templates/design_system.md" "$claude_dir/templates/design_system.md" "~/.claude/templates/design_system.md"
+  ensure_global_workflows_absent "Claude" "$claude_dir/skills" "skill"
+}
+
+merge_codex_config() {
+  local config_file="$HOME/.codex/config.toml"
+  local desired='project_doc_fallback_filenames = ["CLAUDE.md"]'
+
+  if [[ "$MODE" == "verify" ]]; then
+    if [[ -f "$config_file" ]] && grep -Fqx "$desired" "$config_file"; then
+      echo "OK       ~/.codex/config.toml fallback"
+    else
+      echo "DRIFT    ~/.codex/config.toml fallback"
+    fi
+    return
   fi
-  echo
-  echo "To verify: ls ~/.claude/skills/"
+
+  if [[ "$MODE" == "dry-run" ]]; then
+    echo "WOULD    ensure ~/.codex/config.toml contains: $desired"
+    return
+  fi
+
+  mkdir -p "$(dirname "$config_file")"
+  touch "$config_file"
+
+  if grep -Eq '^project_doc_fallback_filenames[[:space:]]*=' "$config_file"; then
+    if grep -Fqx "$desired" "$config_file"; then
+      echo "OK       ~/.codex/config.toml fallback"
+    elif [[ "$MODE" == "sync" ]]; then
+      perl -0pi -e 's/^project_doc_fallback_filenames\s*=.*$/project_doc_fallback_filenames = ["CLAUDE.md"]/m' "$config_file"
+      echo "UPDATED  ~/.codex/config.toml fallback"
+    else
+      echo "SKIP     ~/.codex/config.toml fallback differs; use --sync codex to replace it"
+    fi
+  else
+    printf '\n%s\n' "$desired" >> "$config_file"
+    echo "ADDED    ~/.codex/config.toml fallback"
+  fi
+}
+
+install_codex() {
+  safe_copy "$SCRIPT_DIR/AGENTS.md" "$HOME/.codex/AGENTS.md" "~/.codex/AGENTS.md"
+  safe_copy "$SCRIPT_DIR/templates/design_system.md" "$HOME/.codex/templates/design_system.md" "~/.codex/templates/design_system.md"
+  merge_codex_config
+  ensure_global_workflows_absent "Codex" "$HOME/.agents/skills" "skill"
+}
+
+install_opencode() {
+  local opencode_dir="$HOME/.config/opencode"
+
+  safe_copy "$SCRIPT_DIR/platforms/opencode/opencode.json" "$opencode_dir/opencode.json" "~/.config/opencode/opencode.json"
+  safe_copy "$SCRIPT_DIR/AGENTS.md" "$opencode_dir/AGENTS.md" "~/.config/opencode/AGENTS.md"
+  safe_copy "$SCRIPT_DIR/templates/design_system.md" "$opencode_dir/templates/design_system.md" "~/.config/opencode/templates/design_system.md"
+  ensure_global_workflows_absent "OpenCode" "$opencode_dir/commands" "command"
+}
+
+install_all() {
+  install_claude
+  install_codex
+  install_opencode
 }
 
 install_profile() {
   local profile_name="$1"
   local target_dir="${2:-.}"
+  local kind="${3:-both}"
 
   if [[ -z "$profile_name" ]]; then
     echo "Error: profile name is required."
-    echo "Usage: $0 profile <name> [target-dir]"
     echo
     echo "Available profiles:"
     list_profiles
@@ -104,53 +219,81 @@ install_profile() {
 
   target_dir="$(cd "$target_dir" && pwd)"
 
-  echo "Installing profile '$profile_name' to $target_dir"
-  echo
+  case "$kind" in
+    both|agents|claude)
+      ;;
+    *)
+      echo "Error: profile kind must be one of: both, agents, claude"
+      exit 1
+      ;;
+  esac
+
+  echo "Installing profile '$profile_name' to $target_dir ($kind)"
 
   shopt -s nullglob
-  local copied=0
   for f in "$profile_dir"/*; do
-    if [[ -f "$f" ]]; then
-      local fname
-      fname=$(basename "$f")
-      safe_copy "$f" "$target_dir/$fname" "$target_dir/$fname"
-      copied=$((copied + 1))
+    if [[ ! -f "$f" ]]; then
+      continue
     fi
+
+    local fname
+    fname="$(basename "$f")"
+
+    case "$fname:$kind" in
+      CLAUDE.md:agents|AGENTS.md:claude)
+        continue
+        ;;
+    esac
+
+    safe_copy "$f" "$target_dir/$fname" "$target_dir/$fname"
   done
   shopt -u nullglob
-
-  if [[ "$copied" -eq 0 ]]; then
-    echo "Warning: profile '$profile_name' is empty."
-  fi
-
-  echo
-  echo "Done. Profile '$profile_name' installed to $target_dir."
 }
 
-case "${1:-global}" in
-  global)
-    install_global
+case "${1:-}" in
+  --verify)
+    MODE="verify"
+    shift
+    ;;
+  --sync)
+    MODE="sync"
+    shift
+    ;;
+  --dry-run)
+    MODE="dry-run"
+    shift
+    ;;
+esac
+
+COMMAND="${1:-claude}"
+
+case "$COMMAND" in
+  global|claude)
+    install_claude
+    ;;
+  codex)
+    install_codex
+    ;;
+  opencode)
+    install_opencode
+    ;;
+  all)
+    install_all
     ;;
   profile)
-    install_profile "$2" "$3"
+    install_profile "${2:-}" "${3:-.}" "${4:-both}"
     ;;
   list)
     echo "Available profiles:"
     list_profiles
     ;;
   -h|--help|help)
-    sed -n '2,15p' "$0"
+    usage
     ;;
   *)
-    echo "Unknown command: $1"
+    echo "Unknown command: $COMMAND"
     echo
-    echo "Usage:"
-    echo "  $0 [global]                       Install global config to ~/.claude/"
-    echo "  $0 profile <name> [target-dir]    Install a project profile"
-    echo "  $0 list                           List available profiles"
-    echo
-    echo "Available profiles:"
-    list_profiles
+    usage
     exit 1
     ;;
 esac

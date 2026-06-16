@@ -1,0 +1,5 @@
+# Codex user config additions managed by this repo.
+# Merge into ~/.codex/config.toml instead of replacing the whole file.
+
+# Let Codex read legacy Claude project profiles when no AGENTS.md exists.
+project_doc_fallback_filenames = ["CLAUDE.md"]

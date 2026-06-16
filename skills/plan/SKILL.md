@@ -1,3 +1,8 @@
+---
+name: plan
+description: Create a numbered project change plan in docs/plans before larger or riskier implementation work; use when the user invokes /plan or asks to plan a change.
+---
+
 # /plan — Create a Change Plan
 
 When invoked, create a new plan document for the proposed change.

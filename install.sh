@@ -262,6 +262,13 @@ is_workspace_repo() {
   if [[ -f "$dir/workspace-manifest.yaml" ]]; then
     return 0
   fi
+  # Require $dir to be the repo root, not a subdirectory of it — `git -C` walks
+  # up to the enclosing repo, which would misdetect subdirs as the workspace.
+  local toplevel
+  toplevel="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)" || return 1
+  if [[ "$(cd "$toplevel" && pwd -P)" != "$(cd "$dir" && pwd -P)" ]]; then
+    return 1
+  fi
   if git -C "$dir" remote get-url origin 2>/dev/null | grep -q "benali-workspace"; then
     return 0
   fi
@@ -283,6 +290,10 @@ install_workspace() {
   if [[ "$MODE" == "dry-run" ]]; then
     if [[ -d "$target_dir" ]] && is_workspace_repo "$target_dir"; then
       echo "WOULD    skip clone ($target_dir is already the benali-workspace repo)"
+    elif [[ -e "$target_dir" ]]; then
+      echo "Error: $target_dir exists but is not the benali-workspace repo."
+      echo "Move it aside or pass a different target directory."
+      exit 1
     else
       echo "WOULD    clone $WORKSPACE_REPO -> $target_dir"
     fi

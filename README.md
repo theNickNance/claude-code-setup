@@ -118,6 +118,20 @@ Choose one instruction file type when needed:
 Commit installed profile files with the project. They are project source of
 truth, not machine-local state.
 
+## Benali Workspace
+
+Clone and bootstrap the full Benali workspace (meta-repo plus every leaf repo):
+
+```bash
+./install.sh workspace                # default target: ~/Projects/Benali
+./install.sh workspace ~/code/Benali
+```
+
+Requires `gh auth login` (private repos). Idempotent: an existing workspace is
+detected and the clone skipped; `bootstrap.sh` skips existing leaf repos.
+
+See `docs/machine-setup.md` for the full new-machine sequence.
+
 ## Workflow Source Files
 
 | Command | Purpose |

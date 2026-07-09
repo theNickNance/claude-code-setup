@@ -15,6 +15,8 @@ Usage:
   ./install.sh all                             Install Claude Code, Codex, and OpenCode globals
   ./install.sh profile <name> [target] [kind]  Install a project profile
                                                kind: both|agents|claude (default: both)
+  ./install.sh workspace [target-dir]          Clone + bootstrap the Benali workspace
+                                               (default target: ~/Projects/Benali)
   ./install.sh list                            List available profiles
   ./install.sh --verify <target>               Verify installed files
   ./install.sh --sync <target>                 Overwrite managed files without prompting
@@ -29,6 +31,7 @@ Examples:
   ./install.sh --verify all
   ./install.sh --dry-run codex
   ./install.sh profile nextjs-webapp ~/code/my-app both
+  ./install.sh workspace
 EOF
 }
 
@@ -250,6 +253,75 @@ install_profile() {
   shopt -u nullglob
 }
 
+WORKSPACE_REPO="theNickNance/benali-workspace"
+WORKSPACE_URL="https://github.com/theNickNance/benali-workspace.git"
+
+is_workspace_repo() {
+  local dir="$1"
+
+  if [[ -f "$dir/workspace-manifest.yaml" ]]; then
+    return 0
+  fi
+  if git -C "$dir" remote get-url origin 2>/dev/null | grep -q "benali-workspace"; then
+    return 0
+  fi
+  return 1
+}
+
+install_workspace() {
+  local target_dir="${1:-$HOME/Projects/Benali}"
+
+  if [[ "$MODE" == "verify" ]]; then
+    if [[ -d "$target_dir" ]] && is_workspace_repo "$target_dir"; then
+      echo "OK       workspace at $target_dir"
+    else
+      echo "MISSING  workspace at $target_dir"
+    fi
+    return
+  fi
+
+  if [[ "$MODE" == "dry-run" ]]; then
+    if [[ -d "$target_dir" ]] && is_workspace_repo "$target_dir"; then
+      echo "WOULD    skip clone ($target_dir is already the benali-workspace repo)"
+    else
+      echo "WOULD    clone $WORKSPACE_REPO -> $target_dir"
+    fi
+    echo "WOULD    run $target_dir/bootstrap.sh"
+    return
+  fi
+
+  if [[ -e "$target_dir" ]]; then
+    if is_workspace_repo "$target_dir"; then
+      echo "SKIP     clone ($target_dir is already the benali-workspace repo)"
+    else
+      echo "Error: $target_dir exists but is not the benali-workspace repo."
+      echo "Move it aside or pass a different target directory."
+      exit 1
+    fi
+  else
+    local clone_ok=0
+    if command -v gh >/dev/null 2>&1; then
+      echo "CLONE    $WORKSPACE_REPO -> $target_dir"
+      if ! gh repo clone "$WORKSPACE_REPO" "$target_dir"; then
+        clone_ok=1
+      fi
+    else
+      echo "CLONE    $WORKSPACE_URL -> $target_dir (gh not found, using git)"
+      if ! git clone "$WORKSPACE_URL" "$target_dir"; then
+        clone_ok=1
+      fi
+    fi
+    if [[ "$clone_ok" -ne 0 ]]; then
+      echo "Error: clone of $WORKSPACE_REPO failed."
+      echo "The repo is private — run 'gh auth login' first (or set up git credentials)."
+      exit 1
+    fi
+  fi
+
+  echo "BOOT     $target_dir/bootstrap.sh"
+  "$target_dir/bootstrap.sh"
+}
+
 case "${1:-}" in
   --verify)
     MODE="verify"
@@ -282,6 +354,9 @@ case "$COMMAND" in
     ;;
   profile)
     install_profile "${2:-}" "${3:-.}" "${4:-both}"
+    ;;
+  workspace)
+    install_workspace "${2:-}"
     ;;
   list)
     echo "Available profiles:"
